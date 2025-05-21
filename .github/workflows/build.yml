@@ -1,0 +1,50 @@
+name: Build apk
+on:
+  push:
+    branches:
+      - buildsystem
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Koel Android App
+
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: setup java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: oracle
+      - name: setup ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+          add-to-path: true
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+
+      - name: Setup signature
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release.keystore
+          EOF
+
+      - name: Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release
+          mv build/app/outputs/apk/release/app-release.apk build/app/outputs/apk/release/koel-player.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: koel-player.apk
+          path: build/app/outputs/apk/release/*.apk
